@@ -7,18 +7,26 @@
             <field name="type">form</field>
             <field name="arch" type="xml">
                 <form string="Promotions">
-                    <field name="name" />
-                    <field name="active" />
-                    <separator string="Description" colspan="4" />
-                    <field name="description" colspan="4" nolabel="1" />
-                    <field name="sequence" />
-                    <field name="shop" />
+                    <group col="8" colspan="4">
+                        <field name="name" colspan="2" />
+                        <field name="sequence" colspan="2" />
+                        <field name="active" colspan="2" />
+                    </group>
+                    <group col="4" colspan="4">
+                        <separator string="Description"
+                            colspan="4" />
+                        <field name="description" colspan="4"
+                            nolabel="1" />
+                        <field name="shop" />
+                    </group>
                     <group col="2" colspan="2">
                         <separator colspan="2"
                             string="Coupon/Voucer Settings" />
                         <field name="coupon_code" />
-                        <field name="uses_per_coupon" attrs="{'required':[('coupon_code','!=',False)]}"/>
-                        <field name="uses_per_partner" attrs="{'required':[('coupon_code','!=',False)]}"/>
+                        <field name="uses_per_coupon"
+                            attrs="{'required':[('coupon_code','!=',False)]}" />
+                        <field name="uses_per_partner"
+                            attrs="{'required':[('coupon_code','!=',False)]}" />
                     </group>
                     <group col="2" colspan="2">
                         <separator colspan="4" string="Applicable Period" />
@@ -27,7 +35,24 @@
                     </group>
                     <notebook colspan="4">
                         <page string="Conditions">
-                            <field name="conditions" nolabel="1" />
+                            <group colspan="4" col="8">
+                                <label string="If" colspan="2" />
+                                <field name="logic" nolabel="1"
+                                    colspan="2" />
+                                <label string="expressions are"
+                                    colspan="2" />
+                                <field name="expected_logic_result"
+                                    nolabel="1" colspan="2" />
+                            </group>
+                            <field name="expressions" nolabel="1">
+                                <tree string="Expressions"
+                                    editable="bottom">
+                                    <field name="sequence" />
+                                    <field name="attribute" />
+                                    <field name="comparator" />
+                                    <field name="value" />
+                                </tree>
+                            </field>
                         </page>
                         <page string="Actions">
                             <!--<field name="actions" />
@@ -67,47 +92,6 @@
         </record>
         <menuitem id="promos" action="act_promotion_rules"
             parent="sale.menu_shop_configuration" />
-
-        <record model="ir.ui.view" id="view_promotion_conditions_form">
-            <field name="name">promos.rules.conditions.form</field>
-            <field name="model">promos.rules.conditions</field>
-            <field name="type">form</field>
-            <field name="arch" type="xml">
-                <form string="Conditions">
-                    <group col="4" colspan="4">
-                        <field name="sequence" colspan="2" />
-                        <field name="name" colspan="2" />
-                    </group>
-                    <newline />
-                    <group colspan="4" col="8">
-                        <label string="If" colspan="2" />
-                        <field name="logic" nolabel="1" colspan="2" />
-                        <label string="expressions are" colspan="2" />
-                        <field name="expected_logic_result"
-                            nolabel="1" colspan="2" />
-                    </group>
-                    <separator string="Expressions/Conditions to evaluate"
-                        colspan="4" />
-                    <field name="expressions" nolabel="1">
-                        <tree string="Expressions" editable="bottom">
-                            <field name="sequence" />
-                            <field name="serialised_expr" />
-                        </tree>
-                    </field>
-                </form>
-            </field>
-        </record>
-        <record model="ir.ui.view" id="view_promotion_conditions_tree">
-            <field name="name">promos.rules.conditions.tree</field>
-            <field name="model">promos.rules.conditions</field>
-            <field name="type">tree</field>
-            <field name="arch" type="xml">
-                <tree string="Conditions">
-                    <field name="sequence" />
-                    <field name="name" />
-                </tree>
-            </field>
-        </record>
 
         <record model="ir.ui.view" id="view_promotion_cond_expr_form">
             <field name="name">promos.rules.conditions.exps.form</field>

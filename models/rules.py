@@ -1,9 +1,12 @@
 """
 Rules for evaluation
+
+This design is inspired by magento
 """
 #########################################################################
 #                                                                       #
 # Copyright (C) 2010 Open Labs Business Solutions                       #
+# Special Credit: Yannick Buron for design evaluation                   #
 #                                                                       #
 #This program is free software: you can redistribute it and/or modify   #
 #it under the terms of the GNU General Public License as published by   #
@@ -28,7 +31,7 @@ class PromotionsRules(osv.osv):
     _order = 'sequence'
     
     _columns = {
-        'name':fields.char('Name of Rule', size=50, required=True),
+        'name':fields.char('Promo Name', size=50, required=True),
         'description':fields.text('Description'),
         'active':fields.boolean('Active'),
         'shop':fields.many2one('sale.shop', 'Shop', required=True),
@@ -46,30 +49,6 @@ class PromotionsRules(osv.osv):
         'from_date':fields.datetime('From Date'),
         'to_date':fields.datetime('To Date'),
         'sequence':fields.integer('Sequence', required=True),
-        'conditions':fields.one2many(
-                     'promos.rules.conditions',
-                     'rule',
-                     string="Conditions"
-                         ),
-        'actions':fields.one2many(
-                    'promos.rules.actions',
-                    'rule',
-                    string="Actions"
-                        )
-    }
-PromotionsRules()
-
-
-class PromotionsRulesConditions(osv.osv):
-    "Conditions evaluated for rules"
-    _name = "promos.rules.conditions"
-    _description = __doc__
-    _order = 'sequence'
-    _columns = {
-        'rule':fields.many2one('promos.rules', 'Rule'),
-        'sequence':fields.integer('Sequence', required=True),
-        'name':fields.char('Condition Name', size=50,
-                           help="Leave blank for auto generation"),
         'logic':fields.selection([
                             ('and', 'All'),
                             ('or', 'Any'),
@@ -80,15 +59,57 @@ class PromotionsRulesConditions(osv.osv):
                                     ], string="Output", required=True),
         'expressions':fields.one2many(
                             'promos.rules.conditions.exps',
-                            'condition',
+                            'promotion',
                             string='Expressions/Conditions'
-                            )
+                            ),
+        'actions':fields.one2many(
+                    'promos.rules.actions',
+                    'rule',
+                    string="Actions"
+                        )
     }
     _defaults = {
         'logic':lambda * a:'and',
-        'expected_logic_result': lambda * a:'True'
+        'expected_logic_result':lambda * a:'True'
     }
-PromotionsRulesConditions()
+    
+    def evaluate(self, cursor, user, promo_id, order_id, context=None):
+        """
+        Evaluates if a promotion is valid
+        TODO: Doc this
+        @param promo_id: id of the promotion
+        @param order_id: id of the sale order
+        """
+        if not context:
+            context = {}
+        promotion_rule = self.browse(cursor, user, promo_id, context)
+        order = self.pool.get('sale.order').browse(cursor, user,
+                                                   order_id, context=context)
+        expected_result = eval(promotion_rule.expected_logic_result)
+        logic = eval(promotion_rule.logic)
+        #Evaluate each expression
+        for expression in promotion_rule.expressions:
+            result = expression.evaluate(cursor, user,
+                                         expression, object, context)
+            #For and logic, any False is completely false
+            if (not (result == expected_result)) and (logic == 'and'):
+                return False
+            #For OR logic any True is completely True
+            if (result == expected_result) and (logic=='or'):
+                return True
+            #If stop_further is given, then execution stops  if the
+            #condition was satisfied
+            if (result == expected_result) and expression.stop_further:
+                return True
+        if logic == 'and':
+            #If control comes here for and logic, then all conditions were 
+            #satisfied
+            return True
+        else:
+            #if control comes here for OR logic, none were satisfied
+            return False
+        
+PromotionsRules()
 
 
 class PromotionsRulesConditionsExprs(osv.osv):
@@ -96,15 +117,99 @@ class PromotionsRulesConditionsExprs(osv.osv):
     _name = 'promos.rules.conditions.exps'
     _description = __doc__
     _order = "sequence"
-    _rec_name='serialised_expr'
+    _rec_name = 'serialised_expr'
+    
+    def _get_attributes(self, cursor, user, ids=None, context=None):
+        """
+        Gets the attributes in predefined format
+        """
+        return [
+                ('subtotal', 'Sub Total'),
+                ('tot_item_qty', 'Total Items Quantity'),
+                ('tot_weight', 'Total Weight'),
+                ('tot_item_qty', 'Total Items Quantity'),
+                ('custom', 'Custom domain expression')
+                ]
+    
+    def _get_comparators(self, cursor, user, ids=None, context=None):
+        """
+        Gets the attributes in predefined format
+        """
+        return [
+#                ('is', 'is'),
+#                ('isnot', 'is not'),
+                ('==', 'equals'),
+                ('!=', 'not equal to'),
+                ('>', 'greater than'),
+                ('>=', 'greater than or equal to'),
+                ('<', 'less than'),
+                ('<=', 'less than or equal to'),
+                ('in', 'is in'),
+                ('not in', 'is not in')
+                ]
+    
     _columns = {
         'sequence':fields.integer('Sequence'),
+        'attribute':fields.selection(_get_attributes,
+                                     'Attribute', required=True),
+        'comparator':fields.selection(_get_comparators,
+                                      'Comparator', required=True),
+        'value':fields.char('Value', size=100),
         'serialised_expr':fields.char('Expression', size=255),
-        'condition': fields.many2one('promos.rules.conditions',
-                                     'Condition')
+        'promotion': fields.many2one('promos.rules',
+                                     'Promotion'),
+        'stop_further':fields.boolean('Stop further checks')
+        
     }
     _defaults = {
+        'comparator': lambda * a:'==',
+        'stop_further': lambda * a: '1'
     }
+        
+    def serialise(self, attribute, comparator, value):
+        """
+        Constructs an expression from the entered values
+        which can be quickly evaluated
+        TODO: Doc this
+        """
+        if attribute == 'custom':
+            return value
+        return "object.%s %s %s" % (
+                                    attribute,
+                                    comparator,
+                                    value) 
+        
+    def evaluate(self, cursor, user,
+                 expression, object, context=None):
+        """
+        Evaluates the expression in given environment
+        TODO: Doc the rest
+        @param expression_id: Browserecord of expression
+        @param object: BrowseRecord of sale order
+        @return: True if evaluation succeeded
+        """
+        return eval(expression.serialised_expr) 
+    
+    def create(self, cursor, user, vals, context=None):
+        """
+        Serialise before save
+        """
+        vals['serialised_expr'] = self.serialise(vals['attribute'],
+                                                 vals['comparator'],
+                                                 vals['value'])
+        super(PromotionsRulesConditionsExprs, self).create(cursor, user,
+                                                           vals, context)
+    
+    def write(self, cursor, user, ids, vals, context):
+        """
+        Serialise before Write
+        """
+        vals['serialised_expr'] = self.serialise(vals['attribute'],
+                                                 vals['comparator'],
+                                                 vals['value'])
+        super(PromotionsRulesConditionsExprs, self).write(cursor, user, ids,
+                                                           vals, context)
+        
 PromotionsRulesConditionsExprs()
 
 
@@ -113,6 +218,6 @@ class PromotionsRulesActions(osv.osv):
     _name = 'promos.rules.actions'
     _description = __doc__
     _columns = {
-        'rule':fields.many2one('promos.rules', 'Rule'),
+        'promotion':fields.many2one('promos.rules', 'Promotion'),
     }
 PromotionsRulesActions()
