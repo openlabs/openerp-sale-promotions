@@ -33,6 +33,7 @@ import netsvc
 
 LOGGER = netsvc.Logger()
 DEBUG = True
+PRODUCT_UOM_ID = 1
 
 class PromotionsRules(osv.osv):
     "Promotion Rules"
@@ -220,6 +221,7 @@ class PromotionsRules(osv.osv):
         Executes the actions associated with this rule
         TODO: Doc this
         """
+        action_obj = self.pool.get('promos.rules.actions')
         if DEBUG:
             LOGGER.notifyChannel(
                         "Promotions", netsvc.LOG_INFO,
@@ -227,6 +229,15 @@ class PromotionsRules(osv.osv):
                                                promotion_rule.id,
                                                order_id
                                                ))
+        order = self.pool.get('sale.order').browse(cursor, user,
+                                                   order_id, context)
+        for action in promotion_rule.actions:
+            try:
+                action_obj.execute(cursor, user, action.id,
+                                   order, context=None)
+            except Exception, error:
+                raise error
+        return True
         
         
     def apply_promotions(self, cursor, user, order_id, context=None):
@@ -246,9 +257,15 @@ class PromotionsRules(osv.osv):
                                    context)
             #If evaluates to true
             if result:
-                self.execute_actions(cursor, user,
+                try:
+                    self.execute_actions(cursor, user,
                                      promotion_rule, order_id,
                                      context)
+                except Exception, e:
+                    raise osv.except_osv(
+                                         "Promotions",
+                                         ustr(e)
+                                         )
                 #If stop further is true
                 if promotion_rule.stop_further:
                     return True
@@ -487,7 +504,7 @@ class PromotionsRulesConditionsExprs(osv.osv):
         if attribute == 'comp_sub_total':
             product_codes_iter, value = value.split("|")
             return """sum(
-                [prod_sub_total.get(prod_code) for prod_code in %s]
+                [prod_sub_total.get(prod_code,0) for prod_code in %s]
                 ) %s %s""" % (
                                eval(product_codes_iter),
                                comparator,
@@ -496,7 +513,7 @@ class PromotionsRulesConditionsExprs(osv.osv):
         if attribute == 'comp_sub_total_x':
             product_codes_iter, value = value.split("|")
             return """(sum(prod_sub_total.values()) - sum(
-                [prod_sub_total.get(prod_code) for prod_code in %s]
+                [prod_sub_total.get(prod_code,0) for prod_code in %s]
                 )) %s %s""" % (
                                eval(product_codes_iter),
                                comparator,
@@ -597,22 +614,398 @@ class PromotionsRulesActions(osv.osv):
     _description = __doc__
     _rec_name = 'action_type'
 
+    def _on_change(self, cursor, user, ids=None,
+                   action_type=None, product_code=None,
+                   arguments=None, context=None):
+        """
+        Sets the arguments as templates according to action_type
+        TODO: Doc this
+        """
+        if not action_type:
+            return {}
+        if not arguments in [
+                             False,
+                             "0.00",
+                             "1,1",
+                             ] and product_code in [
+                                        "'product_code'",
+                                        "'product_code_of_y'"
+                                        "'product_code_x','product_code_y'"
+                                                  ]:
+            return {}
+        if action_type in [
+                           'prod_disc_perc',
+                           'prod_disc_fix',
+                           ] :
+            return {
+                    'value':{
+                             'product_code':"'product_code'",
+                             'arguments':"0.00",
+                             }
+                    }
+        if action_type in [
+                           'cart_disc_perc',
+                           'cart_disc_fix',
+                           ] :
+            return {
+                    'value':{
+                             'product_code':False,
+                             'arguments':"0.00",
+                             }
+                    }
+        if action_type in [
+                           'prod_x_get_y',
+                           ] :
+            return {
+                    'value':{
+                         'product_code':"'product_code_x','product_code_y'",
+                         'arguments':"1,1",
+                             }
+                    }
+        #Finally if nothing works
+        return {}
+    
     def _get_action_types(self, cursor, user, ids=None, context=None):
         """
         Gets the action types in predefined format
+        TODO: Doc this
         """
         return [
-                ('product_discount', 'Discount on Product')
+                ('prod_disc_perc', 'Discount % on Product'),
+                ('prod_disc_fix', 'Fixed amount on Product'),
+                ('cart_disc_perc', 'Discount % on Sub Total'),
+                ('cart_disc_fix', 'Fixed amount on Sub Total'),
+                ('prod_x_get_y', 'Buy X get Y free')
                 ]
             
     _columns = {
+        'sequence':fields.integer('Sequence', required=True),
         'action_type':fields.selection(_get_action_types,
                                        'Action',
                                        required=True),
-        
+        'product_code':fields.char('Product Code',
+                                   size=100,
+                                   ),
+        'arguments':fields.char('Arguments', size=100),
         'promotion':fields.many2one('promos.rules',
                                     'Promotion'),
-        
-        
     }
+    
+    def _clear_existing_promotion_lines(self, cursor, user,
+                                        order, context=None):
+        """
+        Deletes existing promotion lines before applying
+        """
+        order_line_obj = self.pool.get('sale.order.line')
+        #Delete all promotion lines
+        order_line_ids = order_line_obj.search(cursor, user,
+                                            [
+                                             ('order_id', '=', order.id),
+                                             ('promotion_line', '=', True),
+                                            ], context=context
+                                            )
+        if order_line_ids:
+            order_line_obj.unlink(cursor, user, order_line_ids, context)
+        #Clear discount column
+        order_line_ids = order_line_obj.search(cursor, user,
+                                            [
+                                             ('order_id', '=', order.id),
+                                            ], context=context
+                                            )
+        if order_line_ids:
+            order_line_obj.write(cursor, user,
+                                 order_line_ids,
+                                 {'discount':0.00},
+                                 context=context)
+        return True
+        
+    def _action_prod_disc_perc(self, cursor, user,
+                               action, order, context=None):
+        """
+        Action for 'Discount % on Product'
+        DOC this
+        """
+        order_line_obj = self.pool.get('sale.order.line')
+        for order_line in order.order_line:
+            if order_line.product_id.code == eval(action.product_code):
+                return order_line_obj.write(cursor,
+                                     user,
+                                     order_line.id,
+                                     {
+                                      'discount':eval(action.arguments),
+                                      },
+                                     context
+                                     )
+    
+    def _action_prod_disc_fix(self, cursor, user,
+                              action, order, context=None):
+        """
+        Action for 'Fixed amount on Product'
+        DOC this
+        """
+        order_line_obj = self.pool.get('sale.order.line')
+        product_obj = self.pool.get('product.product')
+        line_name = '%s on %s' % (action.promotion.name,
+                                     eval(action.product_code))
+        product_id = product_obj.search(cursor, user,
+                               [('default_code', '=', eval(action.product_code))],
+                               context=context)
+        if not product_id:
+            raise Exception("No product with the product code")
+        if len(product_id) > 1:
+            raise Exception("Many products with same code")
+        product = product_obj.browse(cursor, user, product_id[0], context)
+        return order_line_obj.create(cursor,
+                              user,
+                              {
+                              'order_id':order.id,
+                              'name':line_name,
+                              'promotion_line':True,
+                              'price_unit':-eval(action.arguments),
+                              'product_uom_qty':1,
+                              'product_uom':product.uom_id.id
+                              },
+                              context
+                              )
+    
+    def _action_cart_disc_perc(self, cursor, user,
+                               action, order, context=None):
+        """
+        'Discount % on Sub Total'
+        DOC this
+        """
+        order_line_obj = self.pool.get('sale.order.line')
+        return order_line_obj.create(cursor,
+                                  user,
+                                  {
+                      'order_id':order.id,
+                      'name':action.promotion.name,
+                      'price_unit':-(order.amount_untaxed \
+                                    * eval(action.arguments) / 100),
+                      'product_uom_qty':1,
+                      'promotion_line':True,
+                      'product_uom':PRODUCT_UOM_ID
+                                  },
+                                  context
+                                  )
+        
+    def _action_cart_disc_fix(self, cursor, user,
+                              action, order, context=None):
+        """
+        'Fixed amount on Sub Total'
+        DOC this
+        """
+        order_line_obj = self.pool.get('sale.order.line')
+        if action.action_type == 'cart_disc_fix':
+            return order_line_obj.create(cursor,
+                                  user,
+                                  {
+                      'order_id':order.id,
+                      'name':action.promotion.name,
+                      'price_unit':-eval(action.arguments),
+                      'product_uom_qty':1,
+                      'promotion_line':True,
+                      'product_uom':PRODUCT_UOM_ID
+                                  },
+                                  context
+                                  )
+    
+    def _create_y_line(self, cursor, user, action,
+                       order, quantity, product_id, context=None):
+        """
+        Create new order line for product
+        TODO: Doc thos
+        """
+        order_line_obj = self.pool.get('sale.order.line')
+        product_obj = self.pool.get('product.product')
+        product_y = product_obj.browse(cursor, user, product_id[0])
+        return order_line_obj.create(cursor, user, {
+                                             'order_id':order.id,
+                                             'product_id':product_y.id,
+                                             'name':'[%s]%s (%s)' % (
+                                                                     product_y.default_code,
+                                                                     product_y.name,
+                                                                     action.promotion.name),
+                                              'price_unit':0.00, 'promotion_line':True,
+                                              'product_uom_qty':quantity,
+                                              'product_uom':product_y.uom_id.id
+                                              }, context)
+
+    def _action_prod_x_get_y(self, cursor, user,
+                             action, order, context=None):
+        """
+        'Buy X get Y free:[Only for integers]'
+        TODO: Large method split
+        """
+        order_line_obj = self.pool.get('sale.order.line')
+        product_obj = self.pool.get('product.product')
+        
+        vals = prod_qty = {}
+        #Get Product
+        product_x_code, product_y_code = [eval(code) \
+                                for code in action.product_code.split(",")]
+        product_id = product_obj.search(cursor, user, [('default_code', '=', product_y_code)],
+            context=context)
+        if not product_id:
+            raise Exception("No product with the code for Y")
+        if len(product_id) > 1:
+            raise Exception("Many products with same code")
+        #get Quantity
+        qty_x, qty_y = [eval(arg) \
+                                for arg in action.arguments.split(",")]
+        #Build a dictionary of product_code to quantity 
+        for order_line in order.order_line:
+            if order_line.product_id:
+                product_code = order_line.product_id.default_code
+                prod_qty[product_code] = prod_qty.get(
+                                        product_code, 0.00
+                                                ) + order_line.product_uom_qty
+        #Total number of free units of y to give
+        tot_free_y = int(int(prod_qty.get(product_x_code, 0) / qty_x) * qty_y)
+        #If y is already in the cart discount it?
+        qty_y_in_cart = prod_qty.get(product_y_code, 0)
+        existing_order_line_ids = order_line_obj.search(cursor, user,
+                                           [
+                                ('order_id', '=', order.id),
+                                ('product_id.default_code',
+                                            '=', product_y_code)
+                                            ],
+                                           context=context
+                                                )
+        if existing_order_line_ids:
+            update_order_line = order_line_obj.browse(cursor, user,
+                                            existing_order_line_ids[0],
+                                            context)
+            #Update that line
+            #The replace is required because on secondary update 
+            #the name may be repeated
+            if tot_free_y:
+                line_name = "%s (%s)" % (
+                                    update_order_line.name.replace(
+                                                    '(%s)' % action.promotion.name,
+                                                            ''),
+                                    action.promotion.name
+                                            )
+                if qty_y_in_cart <= tot_free_y:
+                    #Quantity in cart is less then increase to total free
+                    order_line_obj.write(cursor, user, update_order_line.id,
+                                     {
+                                      'name':line_name,
+                                      'product_uom_qty': tot_free_y,
+                                      'discount': 100,
+                                      }, context)
+                    
+                else:
+                    #If the order has come for 5 and only 3 are free
+                    #then convert paid order to 2 units and rest free
+                    order_line_obj.write(cursor, user, update_order_line.id,
+                                     {
+                                      'product_uom_qty': qty_y_in_cart - tot_free_y,
+                                      }, context)
+                    self._create_y_line(cursor, user, action,
+                                        order,
+                                        tot_free_y,
+                                        product_id,
+                                        context
+                                        )
+                #delete the other lines
+                existing_order_line_ids.remove(existing_order_line_ids[0])
+                if existing_order_line_ids:
+                    order_line_obj.unlink(cursor, user,
+                                              existing_order_line_ids, context)
+                return True
+        else:
+            #Dont create line if quantity is not there
+            if not tot_free_y:
+                return True
+            return self._create_y_line(cursor, user, action,
+                                       order, tot_free_y, product_id, context)
+                                
+    def execute(self, cursor, user, action_id,
+                                   order, context=None):
+        """
+        Executes the action into the order
+        TODO: Doc this
+        """
+        self._clear_existing_promotion_lines(cursor, user, order, context)
+        action = self.browse(cursor, user, action_id, context)
+        method_name = '_action_' + action.action_type
+        return getattr(self, method_name).__call__(cursor, user, action,
+                                                   order, context)
+        
+    def validate(self, cursor, user, vals, context):
+        """
+        Validates if the values are coherent with
+        attribute
+        """
+        if vals['action_type'] in [
+                           'prod_disc_perc',
+                           'prod_disc_fix',
+                           ] :
+            if not type(eval(vals['product_code'])) == str:
+               raise Exception(
+                        "Invalid product code\nHas to be 'product_code'"
+                            ) 
+            if not type(eval(vals['arguments'])) in [int, long, float]:
+                raise Exception("Argument has to be numeric. eg: 10.00")
+        
+        if vals['action_type'] in [
+                           'cart_disc_perc',
+                           'cart_disc_fix',
+                           ]:
+            if vals['product_code']:
+                   raise Exception("Product code is not used in cart actions") 
+            if not type(eval(vals['arguments'])) in [int, long, float]:
+                raise Exception("Argument has to be numeric. eg: 10.00")
+        
+        if vals['action_type'] in ['prod_x_get_y', ]:
+            try:
+                code_1, code_2 = vals['product_code'].split(",")
+                assert (type(eval(code_1)) == str)
+                assert (type(eval(code_2)) == str)
+            except: 
+                raise Exception(
+                  "Product codes have to be of form 'product_x','product_y'"
+                            )
+            try:
+                qty_1, qty_2 = vals['arguments'].split(',')
+                assert (type(eval(qty_1)) in [int, long])
+                assert (type(eval(qty_2)) in [int, long])
+            except:
+                raise Exception("Argument has to be qty of x,y eg.`1, 1`")
+        
+        return True
+    
+    def create(self, cursor, user, vals, context=None):
+        """
+        Validate before save
+        """
+        try:
+            self.validate(cursor, user, vals, context)
+        except Exception, e:
+            raise osv.except_osv("Invalid Expression", ustr(e))
+        super(PromotionsRulesActions, self).create(cursor, user,
+                                                           vals, context)
+    
+    def write(self, cursor, user, ids, vals, context):
+        """
+        Validate before Write
+        """
+        #Validate before save
+        if type(ids) in [list, tuple] and ids:
+            ids = ids[0]
+        try:
+            old_vals = self.read(cursor, user, ids,
+                                 ['action_type', 'product_code', 'arguments'],
+                                 context)
+            old_vals.update(vals)
+            old_vals.has_key('id') and old_vals.pop('id')
+            self.validate(cursor, user, old_vals, context)
+        except Exception, e:
+            raise osv.except_osv("Invalid Expression", ustr(e))
+        #only value may have changed and client gives only value
+        vals = old_vals 
+        super(PromotionsRulesActions, self).write(cursor, user, ids,
+                                                           vals, context)
+    
 PromotionsRulesActions()

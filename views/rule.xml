@@ -51,7 +51,8 @@
                                     editable="bottom">
                                     <field name="sequence" />
                                     <field name="stop_further" />
-                                    <field name="attribute" on_change="_on_change(attribute, value)"/>
+                                    <field name="attribute"
+                                        on_change="_on_change(attribute, value)" />
                                     <field name="comparator" />
                                     <field name="value" />
 
@@ -59,8 +60,15 @@
                             </field>
                         </page>
                         <page string="Actions">
-                            <!--<field name="actions" />
-                        -->
+                            <field name="actions" nolabel="1">
+                                <tree editable="bottom" string="Actions">
+                                    <field name="sequence" />
+                                    <field name="action_type"
+                                        on_change="_on_change(action_type, product_code, arguments)" />
+                                    <field name="product_code" />
+                                    <field name="arguments" />
+                                </tree>
+                            </field>
                         </page>
                         <page string="Partner Categories">
                             <field name="partner_categories"
