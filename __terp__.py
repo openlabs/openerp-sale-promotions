@@ -35,13 +35,17 @@
     Promotions on Sale Order for Open ERP
     = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     Features:
-    1. 
+    1. Promotions based on conditions and coupons
+    2. Web services API compliance
+    
     Credits:
         This design is based/inspired by the Magento commerce
+        Special Thanks to Yannick Buron for analysis
     """,
     'update_xml': [
         'views/rule.xml',
+        'views/sale.xml',
                 ],
     'installable': True,
-    'active': False,    
+    'active': False,
 }

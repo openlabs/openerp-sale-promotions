@@ -11,13 +11,15 @@
                         <field name="name" colspan="2" />
                         <field name="sequence" colspan="2" />
                         <field name="active" colspan="2" />
+                        <field name="shop" colspan="2" />
+                        <field name="stop_further" colspan="2" />
                     </group>
                     <group col="4" colspan="4">
                         <separator string="Description"
                             colspan="4" />
                         <field name="description" colspan="4"
                             nolabel="1" />
-                        <field name="shop" />
+
                     </group>
                     <group col="2" colspan="2">
                         <separator colspan="2"
@@ -48,9 +50,11 @@
                                 <tree string="Expressions"
                                     editable="bottom">
                                     <field name="sequence" />
+                                    <field name="stop_further" />
                                     <field name="attribute" />
                                     <field name="comparator" />
                                     <field name="value" />
+
                                 </tree>
                             </field>
                         </page>
