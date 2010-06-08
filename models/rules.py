@@ -287,7 +287,70 @@ class PromotionsRulesConditionsExprs(osv.osv):
                 #('tot_item_qty', 'Total Items Quantity'),
                 ('custom', 'Custom domain expression'),
                 ]
-    
+        
+    def _on_change(self, cursor, user, ids=None,
+                   attribute=None, value=None, context=None):
+        """
+        Set the value field to the format if nothing is there
+        TODO: Doc this
+        """
+        #If attribute is not there then return.
+        #Will this case be there?
+        if not attribute:
+            return {}
+        #If value is not null or one of the defaults
+        if not value in [
+                         False,
+                         "'product_code'",
+                         "'product_code',0.00",
+                         "['product_code','product_code2']|0.00",
+                         "0.00",
+                         ]:
+            return {}
+        #Case 1
+        if attribute == 'product':
+            return {
+                    'value':{
+                             'value':"'product_code'"
+                             }
+                    }
+        #Case 2
+        if attribute in [
+                         'prod_qty',
+                         'prod_unit_price',
+                         'prod_sub_total',
+                         'prod_discount',
+                         'prod_weight',
+                         'prod_net_price',
+                         ]:
+            return {
+                    'value':{
+                             'value':"'product_code',0.00"
+                             }
+                    }
+        #Case 3
+        if attribute in [
+                         'comp_sub_total',
+                         'comp_sub_total_x',
+                         ]:
+            return {
+                    'value':{
+                             'value':"['product_code','product_code2']|0.00"
+                             }
+                    }
+        #Case 4
+        if attribute in [
+                         'amount_untaxed',
+                         'amount_tax',
+                         'amount_total',
+                         ]:
+            return {
+                    'value':{
+                             'value':"0.00"
+                             }
+                    }
+        return {}
+            
     def _get_comparators(self, cursor, user, ids=None, context=None):
         """
         Gets the attributes in predefined format
