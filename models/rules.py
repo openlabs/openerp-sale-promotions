@@ -41,6 +41,34 @@ class PromotionsRules(osv.osv):
     _description = __doc__
     _order = 'sequence'
     
+    def _count_coupon_use(self, cursor, user, ids, 
+                          name, arg, context=None):
+        '''
+        This function count the number of sale orders(not in cancelled state)
+        that are linked to a particular coupon.
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param ids: ID of Current record.
+        @param name: Name of the field which calls this function.
+        @param arg: Any argument(here None).
+        @param context: Context(no direct use).
+        @return: No. of of sale orders(not in cancelled state)
+                that are linked to a particular coupon
+        '''
+        sales_obj = self.pool.get('sale.order')
+        res = {}
+        for promotion_rule in self.browse(cursor, user, ids, context):
+            if promotion_rule.coupon_code:
+                #If there is uses per coupon defined check if its overused
+                if promotion_rule.uses_per_coupon > -1:
+                    matching_ids = sales_obj.search(cursor, user,
+                            [
+                            ('coupon_code', '=', promotion_rule.coupon_code),
+                            ('state', '<>', 'cancel')
+                            ], context=context)
+                res[promotion_rule.id] = len(matching_ids)
+        return res
+    
     _columns = {
         'name':fields.char('Promo Name', size=50, required=True),
         'description':fields.text('Description'),
@@ -59,6 +87,12 @@ class PromotionsRules(osv.osv):
         'coupon_code':fields.char('Coupon Code', size=20),
         'uses_per_coupon':fields.integer('Uses per Coupon'),
         'uses_per_partner':fields.integer('Uses per Partner'),
+        'coupon_used': fields.function(
+                    _count_coupon_use, 
+                    method=True, 
+                    type='integer',
+                    string='Number of Coupon Uses',
+                    help='The number of times this coupon has been used.'),
         'from_date':fields.datetime('From Date'),
         'to_date':fields.datetime('To Date'),
         'sequence':fields.integer('Sequence', required=True),
@@ -104,7 +138,11 @@ class PromotionsRules(osv.osv):
         Checks the conditions for 
             Coupon Code
             Validity Date
-        
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param promotion_rule: Browse record sent by calling func. 
+        @param order: Browse record sent by calling func.
+        @param context: Context(no direct use).
         """
         sales_obj = self.pool.get('sale.order')
         #Check if the customer is in the specified partner cats
@@ -123,15 +161,12 @@ class PromotionsRules(osv.osv):
             #If the codes don't match then this is not the promo 
             if not order.coupon_code == promotion_rule.coupon_code:
                 raise Exception("Coupon codes do not match")
-            #If there is use per coupon defined check if its overused
-            if promotion_rule.uses_per_coupon > -1:
-                matching_ids = sales_obj.search(cursor, user,
-                         [
-                          ('coupon_code', '=', promotion_rule.coupon_code),
-                          ('state', '<>', 'cancel')
-                          ], context=context)
-                if len(matching_ids) > promotion_rule.uses_per_coupon:
-                    raise Exception("Coupon is overused")
+            # Calling _count_coupon_use to check whether no. of 
+            # uses is greater than allowed uses.
+            count = self._count_coupon_use(cursor, user, [promotion_rule.id], 
+                                           True, None, context).values()[0]
+            if count > promotion_rule.uses_per_coupon:
+                raise Exception("Coupon is overused")
             #If a limitation exists on the usage per partner
             if promotion_rule.uses_per_partner > -1:
                 matching_ids = sales_obj.search(cursor, user,
@@ -158,9 +193,11 @@ class PromotionsRules(osv.osv):
     def evaluate(self, cursor, user, promotion_rule, order, context=None):
         """
         Evaluates if a promotion is valid
-        TODO: Doc this
-        @param promo_rule: Browse Record
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param promotion_rule: Browse Record
         @param order: Browse Record
+        @param context: Context(no direct use).
         """
         if not context:
             context = {}
@@ -219,7 +256,11 @@ class PromotionsRules(osv.osv):
                             order_id, context):
         """
         Executes the actions associated with this rule
-        TODO: Doc this
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param promotion_rule: Browse Record
+        @param order_id: ID of sale order
+        @param context: Context(no direct use).
         """
         action_obj = self.pool.get('promos.rules.actions')
         if DEBUG:
@@ -243,7 +284,10 @@ class PromotionsRules(osv.osv):
     def apply_promotions(self, cursor, user, order_id, context=None):
         """
         Applies promotions
-        TODO: Doc this
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param order_id: ID of sale order
+        @param context: Context(no direct use).
         """
         order = self.pool.get('sale.order').browse(cursor, user,
                                                    order_id, context=context)
@@ -285,6 +329,10 @@ class PromotionsRulesConditionsExprs(osv.osv):
     def _get_attributes(self, cursor, user, ids=None, context=None):
         """
         Gets the attributes in predefined format
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param ids: ID of current record.
+        @param context: Context(no direct use).
         """
         return [
                 ('amount_untaxed', 'Untaxed Total'),
@@ -309,7 +357,12 @@ class PromotionsRulesConditionsExprs(osv.osv):
                    attribute=None, value=None, context=None):
         """
         Set the value field to the format if nothing is there
-        TODO: Doc this
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param ids: ID of current record.
+        @param attribute: attribute sent by caller.
+        @param value: Value sent by caller.
+        @param context: Context(no direct use).
         """
         #If attribute is not there then return.
         #Will this case be there?
@@ -371,6 +424,10 @@ class PromotionsRulesConditionsExprs(osv.osv):
     def _get_comparators(self, cursor, user, ids=None, context=None):
         """
         Gets the attributes in predefined format
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param ids: ID of current record.
+        @param context: Context(no direct use).
         """
         return [
 #                ('is', 'is'),
@@ -406,7 +463,10 @@ class PromotionsRulesConditionsExprs(osv.osv):
     def validate(self, cursor, user, vals, context=None):
         """
         Checks the validity
-        TODO: Doc this
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param vals: Values of current record.
+        @param context: Context(no direct use).
         """
         NUMERCIAL_COMPARATORS = ['==', '!=', '<=', '<', '>', '>=']
         ITERATOR_COMPARATORS = ['in', 'not in']
@@ -478,7 +538,9 @@ class PromotionsRulesConditionsExprs(osv.osv):
         """
         Constructs an expression from the entered values
         which can be quickly evaluated
-        TODO: Doc this
+        @param attribute: attribute of promo expression
+        @param comparator: Comparator used in promo expression.
+        @param value: value according which attribute will be compared
         """
         if attribute == 'custom':
             return value
@@ -528,10 +590,11 @@ class PromotionsRulesConditionsExprs(osv.osv):
                  expression, order, context=None):
         """
         Evaluates the expression in given environment
-        
-        TODO: Doc the rest
-        @param expression_id: Browserecord of expression
-        @param object: BrowseRecord of sale order
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param expression: Browse record of expression
+        @param order: Browse Record of sale order
+        @param context: Context(no direct use).
         @return: True if evaluation succeeded
         """
         products = []   # List of product Codes
@@ -570,6 +633,10 @@ class PromotionsRulesConditionsExprs(osv.osv):
     def create(self, cursor, user, vals, context=None):
         """
         Serialise before save
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param vals: Values of current record.
+        @param context: Context(no direct use).
         """
         try:
             self.validate(cursor, user, vals, context)
@@ -584,6 +651,11 @@ class PromotionsRulesConditionsExprs(osv.osv):
     def write(self, cursor, user, ids, vals, context):
         """
         Serialise before Write
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param ids: ID of current record.
+        @param vals: Values of current record.
+        @param context: Context(no direct use).
         """
         #Validate before save
         if type(ids) in [list, tuple] and ids:
@@ -619,7 +691,14 @@ class PromotionsRulesActions(osv.osv):
                    arguments=None, context=None):
         """
         Sets the arguments as templates according to action_type
-        TODO: Doc this
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param ids: ID of current record
+        @param action_type: type of action to be taken
+        @product_code: Product on which action will be taken.
+                (Only in cases when attribute in expression is product.)
+        @param arguments: Values that will be used in implementing of actions
+        @param context: Context(no direct use).
         """
         if not action_type:
             return {}
@@ -668,7 +747,10 @@ class PromotionsRulesActions(osv.osv):
     def _get_action_types(self, cursor, user, ids=None, context=None):
         """
         Gets the action types in predefined format
-        TODO: Doc this
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param ids: ID current record.
+        @param context: Context(no direct use).
         """
         return [
                 ('prod_disc_perc', 'Discount % on Product'),
@@ -695,6 +777,10 @@ class PromotionsRulesActions(osv.osv):
                                         order, context=None):
         """
         Deletes existing promotion lines before applying
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param order: Sale order
+        @param context: Context(no direct use).
         """
         order_line_obj = self.pool.get('sale.order.line')
         #Delete all promotion lines
@@ -723,7 +809,11 @@ class PromotionsRulesActions(osv.osv):
                                action, order, context=None):
         """
         Action for 'Discount % on Product'
-        DOC this
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param action: Action to be taken on sale order
+        @param order: sale order
+        @param context: Context(no direct use).
         """
         order_line_obj = self.pool.get('sale.order.line')
         for order_line in order.order_line:
@@ -741,7 +831,11 @@ class PromotionsRulesActions(osv.osv):
                               action, order, context=None):
         """
         Action for 'Fixed amount on Product'
-        DOC this
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param action: Action to be taken on sale order
+        @param order: sale order
+        @param context: Context(no direct use).
         """
         order_line_obj = self.pool.get('sale.order.line')
         product_obj = self.pool.get('product.product')
@@ -772,7 +866,11 @@ class PromotionsRulesActions(osv.osv):
                                action, order, context=None):
         """
         'Discount % on Sub Total'
-        DOC this
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param action: Action to be taken on sale order
+        @param order: sale order
+        @param context: Context(no direct use).
         """
         order_line_obj = self.pool.get('sale.order.line')
         return order_line_obj.create(cursor,
@@ -793,7 +891,11 @@ class PromotionsRulesActions(osv.osv):
                               action, order, context=None):
         """
         'Fixed amount on Sub Total'
-        DOC this
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param action: Action to be taken on sale order
+        @param order: sale order
+        @param context: Context(no direct use).
         """
         order_line_obj = self.pool.get('sale.order.line')
         if action.action_type == 'cart_disc_fix':
@@ -814,7 +916,13 @@ class PromotionsRulesActions(osv.osv):
                        order, quantity, product_id, context=None):
         """
         Create new order line for product
-        TODO: Doc thos
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param action: Action to be taken on sale order
+        @param order: sale order
+        @param quantity: quantity of new free product
+        @param product_id: product to be given free
+        @param context: Context(no direct use).
         """
         order_line_obj = self.pool.get('sale.order.line')
         product_obj = self.pool.get('product.product')
@@ -835,7 +943,11 @@ class PromotionsRulesActions(osv.osv):
                              action, order, context=None):
         """
         'Buy X get Y free:[Only for integers]'
-        TODO: Large method split
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param action: Action to be taken on sale order
+        @param order: sale order
+        @param context: Context(no direct use).
         """
         order_line_obj = self.pool.get('sale.order.line')
         product_obj = self.pool.get('product.product')
@@ -925,7 +1037,11 @@ class PromotionsRulesActions(osv.osv):
                                    order, context=None):
         """
         Executes the action into the order
-        TODO: Doc this
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param action_id: Action to be taken on sale order
+        @param order: sale order
+        @param context: Context(no direct use).
         """
         self._clear_existing_promotion_lines(cursor, user, order, context)
         action = self.browse(cursor, user, action_id, context)
@@ -937,6 +1053,10 @@ class PromotionsRulesActions(osv.osv):
         """
         Validates if the values are coherent with
         attribute
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param vals: Values of current record.
+        @param context: Context(no direct use).
         """
         if vals['action_type'] in [
                            'prod_disc_perc',
@@ -979,6 +1099,10 @@ class PromotionsRulesActions(osv.osv):
     def create(self, cursor, user, vals, context=None):
         """
         Validate before save
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param vals: Values of current record.
+        @param context: Context(no direct use).
         """
         try:
             self.validate(cursor, user, vals, context)
@@ -990,6 +1114,10 @@ class PromotionsRulesActions(osv.osv):
     def write(self, cursor, user, ids, vals, context):
         """
         Validate before Write
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param vals: Values of current record.
+        @param context: Context(no direct use).
         """
         #Validate before save
         if type(ids) in [list, tuple] and ids:

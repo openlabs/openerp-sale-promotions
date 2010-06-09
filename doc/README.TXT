@@ -2,7 +2,7 @@
 
 ## Menus
 
-    *  Sale Management >> Configuration >> Promotions
+    *  Sale Management >> Configuration >> Promotion Rules
         * Order promotions  
 
 ## Functionality

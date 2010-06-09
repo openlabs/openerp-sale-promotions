@@ -8,9 +8,9 @@
             <field name="arch" type="xml">
                 <form string="Promotions">
                     <group col="8" colspan="4">
-                        <field name="name" colspan="2" />
+                        <field name="name" colspan="2" select="1"/>
                         <field name="sequence" colspan="2" />
-                        <field name="active" colspan="2" />
+                        <field name="active" colspan="2" select="1"/>
                         <field name="shop" colspan="2" />
                         <field name="stop_further" colspan="2" />
                     </group>
@@ -21,10 +21,12 @@
                             nolabel="1" />
 
                     </group>
-                    <group col="2" colspan="2">
-                        <separator colspan="2"
-                            string="Coupon/Voucer Settings" />
+			<group colspan="6">
+                    <group colspan="2">
+                        <separator colspan="4"
+                            string="Coupon/Voucher Settings" />
                         <field name="coupon_code" />
+						<field name="coupon_used" />
                         <field name="uses_per_coupon"
                             attrs="{'required':[('coupon_code','!=',False)]}" />
                         <field name="uses_per_partner"
@@ -35,6 +37,7 @@
                         <field name="from_date" />
                         <field name="to_date" />
                     </group>
+</group>
                     <notebook colspan="4">
                         <page string="Conditions">
                             <group colspan="4" col="8">
@@ -55,7 +58,6 @@
                                         on_change="_on_change(attribute, value)" />
                                     <field name="comparator" />
                                     <field name="value" />
-
                                 </tree>
                             </field>
                         </page>

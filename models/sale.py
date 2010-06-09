@@ -33,7 +33,10 @@ class SaleOrder(osv.osv):
     def apply_promotions(self, cursor, user, ids, context=None):
         """
         Applies the promotions to the given records
-        TODO: Doc this
+        @param cursor: Database Cursor
+        @param user: ID of User
+        @param ids: ID of current record.
+        @param context: Context(no direct use).
         """
         promotions_obj = self.pool.get('promos.rules')
         for order_id in ids:
