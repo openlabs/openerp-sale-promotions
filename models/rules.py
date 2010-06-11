@@ -615,19 +615,19 @@ class PromotionsRulesConditionsExprs(osv.osv):
                                                     ) + line.product_uom_qty
                 prod_net_price[product_code] = prod_net_price.get(
                                                     product_code, 0.00
-                                                            ) + line.price_net
+                                                    ) + line.price_net
                 prod_unit_price[product_code] = prod_unit_price.get(
                                                     product_code, 0.00
-                                                            ) + line.price_unit
+                                                    ) + line.price_unit
                 prod_sub_total[product_code] = prod_sub_total.get(
                                                     product_code, 0.00
-                                                            ) + line.price_subtotal
+                                                    ) + line.price_subtotal
                 prod_discount[product_code] = prod_discount.get(
                                                     product_code, 0.00
-                                                            ) + line.discount
+                                                    ) + line.discount
                 prod_weight[product_code] = prod_weight.get(
                                                     product_code, 0.00
-                                                            ) + line.th_weight 
+                                                    ) + line.th_weight 
         return eval(expression.serialised_expr) 
     
     def create(self, cursor, user, vals, context=None):
@@ -842,8 +842,8 @@ class PromotionsRulesActions(osv.osv):
         line_name = '%s on %s' % (action.promotion.name,
                                      eval(action.product_code))
         product_id = product_obj.search(cursor, user,
-                               [('default_code', '=', eval(action.product_code))],
-                               context=context)
+                       [('default_code', '=', eval(action.product_code))],
+                       context=context)
         if not product_id:
             raise Exception("No product with the product code")
         if len(product_id) > 1:
@@ -928,16 +928,16 @@ class PromotionsRulesActions(osv.osv):
         product_obj = self.pool.get('product.product')
         product_y = product_obj.browse(cursor, user, product_id[0])
         return order_line_obj.create(cursor, user, {
-                                             'order_id':order.id,
-                                             'product_id':product_y.id,
-                                             'name':'[%s]%s (%s)' % (
-                                                                     product_y.default_code,
-                                                                     product_y.name,
-                                                                     action.promotion.name),
-                                              'price_unit':0.00, 'promotion_line':True,
-                                              'product_uom_qty':quantity,
-                                              'product_uom':product_y.uom_id.id
-                                              }, context)
+                             'order_id':order.id,
+                             'product_id':product_y.id,
+                             'name':'[%s]%s (%s)' % (
+                                         product_y.default_code,
+                                         product_y.name,
+                                         action.promotion.name),
+                              'price_unit':0.00, 'promotion_line':True,
+                              'product_uom_qty':quantity,
+                              'product_uom':product_y.uom_id.id
+                              }, context)
 
     def _action_prod_x_get_y(self, cursor, user,
                              action, order, context=None):
@@ -948,6 +948,11 @@ class PromotionsRulesActions(osv.osv):
         @param action: Action to be taken on sale order
         @param order: sale order
         @param context: Context(no direct use).
+        
+        Note: The function is too long because if it is split then there 
+                will a lot of arguments to be passed from one function to
+                another. This might cause the function to get slow and 
+                hamper the coding standards.
         """
         order_line_obj = self.pool.get('sale.order.line')
         product_obj = self.pool.get('product.product')
@@ -956,7 +961,8 @@ class PromotionsRulesActions(osv.osv):
         #Get Product
         product_x_code, product_y_code = [eval(code) \
                                 for code in action.product_code.split(",")]
-        product_id = product_obj.search(cursor, user, [('default_code', '=', product_y_code)],
+        product_id = product_obj.search(cursor, user, 
+                                [('default_code', '=', product_y_code)],
             context=context)
         if not product_id:
             raise Exception("No product with the code for Y")
@@ -993,38 +999,38 @@ class PromotionsRulesActions(osv.osv):
             #the name may be repeated
             if tot_free_y:
                 line_name = "%s (%s)" % (
-                                    update_order_line.name.replace(
-                                                    '(%s)' % action.promotion.name,
-                                                            ''),
-                                    action.promotion.name
-                                            )
+                                        update_order_line.name.replace(
+                                            '(%s)' % action.promotion.name,
+                                                                ''),
+                                        action.promotion.name
+                                                )
                 if qty_y_in_cart <= tot_free_y:
-                    #Quantity in cart is less then increase to total free
+                        #Quantity in cart is less then increase to total free
                     order_line_obj.write(cursor, user, update_order_line.id,
-                                     {
-                                      'name':line_name,
-                                      'product_uom_qty': tot_free_y,
-                                      'discount': 100,
-                                      }, context)
-                    
+                                         {
+                                          'name':line_name,
+                                          'product_uom_qty': tot_free_y,
+                                          'discount': 100,
+                                          }, context)
+                        
                 else:
-                    #If the order has come for 5 and only 3 are free
-                    #then convert paid order to 2 units and rest free
+                        #If the order has come for 5 and only 3 are free
+                        #then convert paid order to 2 units and rest free
                     order_line_obj.write(cursor, user, update_order_line.id,
-                                     {
-                                      'product_uom_qty': qty_y_in_cart - tot_free_y,
-                                      }, context)
+                                         {
+                                    'product_uom_qty': qty_y_in_cart - tot_free_y,
+                                          }, context)
                     self._create_y_line(cursor, user, action,
-                                        order,
-                                        tot_free_y,
-                                        product_id,
-                                        context
-                                        )
-                #delete the other lines
+                                            order,
+                                            tot_free_y,
+                                            product_id,
+                                            context
+                                            )
+                    #delete the other lines
                 existing_order_line_ids.remove(existing_order_line_ids[0])
                 if existing_order_line_ids:
                     order_line_obj.unlink(cursor, user,
-                                              existing_order_line_ids, context)
+                                          existing_order_line_ids, context)
                 return True
         else:
             #Dont create line if quantity is not there
@@ -1063,7 +1069,7 @@ class PromotionsRulesActions(osv.osv):
                            'prod_disc_fix',
                            ] :
             if not type(eval(vals['product_code'])) == str:
-               raise Exception(
+                raise Exception(
                         "Invalid product code\nHas to be 'product_code'"
                             ) 
             if not type(eval(vals['arguments'])) in [int, long, float]:
@@ -1074,7 +1080,7 @@ class PromotionsRulesActions(osv.osv):
                            'cart_disc_fix',
                            ]:
             if vals['product_code']:
-                   raise Exception("Product code is not used in cart actions") 
+                raise Exception("Product code is not used in cart actions") 
             if not type(eval(vals['arguments'])) in [int, long, float]:
                 raise Exception("Argument has to be numeric. eg: 10.00")
         

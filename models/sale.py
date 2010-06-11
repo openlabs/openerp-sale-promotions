@@ -24,6 +24,9 @@ This design is inspired by magento
 from osv import osv, fields
 
 class SaleOrder(osv.osv):
+    '''
+    Sale Order
+    '''
     _inherit = 'sale.order'
     
     _columns = {
@@ -49,6 +52,9 @@ SaleOrder()
 
 
 class SaleOrderLine(osv.osv):
+    '''
+    Sale Order Line
+    '''
     _inherit = "sale.order.line"
     
     _columns = {
