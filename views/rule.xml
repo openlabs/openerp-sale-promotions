@@ -21,23 +21,23 @@
                             nolabel="1" />
 
                     </group>
-			<group colspan="6">
-                    <group colspan="2">
-                        <separator colspan="4"
-                            string="Coupon/Voucher Settings" />
-                        <field name="coupon_code" />
-						<field name="coupon_used" />
-                        <field name="uses_per_coupon"
-                            attrs="{'required':[('coupon_code','!=',False)]}" />
-                        <field name="uses_per_partner"
-                            attrs="{'required':[('coupon_code','!=',False)]}" />
+			        <group colspan="6">
+                            <group colspan="2">
+                                <separator colspan="4"
+                                    string="Coupon/Voucher Settings" />
+                                <field name="coupon_code" />
+						        <field name="coupon_used" />
+                                <field name="uses_per_coupon"
+                                    attrs="{'required':[('coupon_code','!=',False)]}" />
+                                <field name="uses_per_partner"
+                                    attrs="{'required':[('coupon_code','!=',False)]}" />
+                            </group>
+                            <group col="2" colspan="2">
+                                <separator colspan="4" string="Applicable Period" />
+                                <field name="from_date" />
+                                <field name="to_date" />
+                            </group>
                     </group>
-                    <group col="2" colspan="2">
-                        <separator colspan="4" string="Applicable Period" />
-                        <field name="from_date" />
-                        <field name="to_date" />
-                    </group>
-</group>
                     <notebook colspan="4">
                         <page string="Conditions">
                             <group colspan="4" col="8">
@@ -59,6 +59,14 @@
                                     <field name="comparator" />
                                     <field name="value" />
                                 </tree>
+                                <form>
+                                    <field name="sequence" />
+                                    <field name="attribute"
+                                        on_change="_on_change(attribute, value)" />
+                                    <field name="comparator" />
+                                    <field name="value" />
+                                    <field name="stop_further" />
+                                </form>
                             </field>
                         </page>
                         <page string="Actions">
@@ -70,6 +78,13 @@
                                     <field name="product_code" />
                                     <field name="arguments" />
                                 </tree>
+                                <form>
+                                    <field name="sequence" />
+                                    <field name="action_type"
+                                        on_change="_on_change(action_type, product_code, arguments)" />
+                                    <field name="product_code" />
+                                    <field name="arguments" />
+                                </form>
                             </field>
                         </page>
                         <page string="Partner Categories">

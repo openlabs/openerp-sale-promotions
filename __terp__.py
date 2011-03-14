@@ -24,7 +24,7 @@
     'version' : '0.1',
     'author' : 'Open Labs Business Solutions',
     'website': 'http://openlabs.co.in',
-    'category' : 'Customised Modules',
+    'category' : 'Generic Modules/Sales & Purchases',
     'depends' : [
                  "base",
                  "sale",
@@ -43,6 +43,7 @@
         Special Thanks to Yannick Buron for analysis
     """,
     'update_xml': [
+        'security/ir.model.access.csv',
         'views/rule.xml',
         'views/sale.xml',
                 ],

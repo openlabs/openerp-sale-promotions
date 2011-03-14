@@ -6,6 +6,7 @@ This design is inspired by magento
 #########################################################################
 #                                                                       #
 # Copyright (C) 2010 Open Labs Business Solutions                       #
+# Copyright (C) 2011 Zikzakmedia                                        #
 # Special Credit: Yannick Buron for design evaluation                   #
 #                                                                       #
 #This program is free software: you can redistribute it and/or modify   #
@@ -27,13 +28,53 @@ try:
     from sets import Set as set
 except:
     pass
+
 from osv import osv, fields
 from tools.misc import ustr
 import netsvc
+from tools.translate import _
 
 LOGGER = netsvc.Logger()
 DEBUG = True
 PRODUCT_UOM_ID = 1
+
+ATTRIBUTES = [
+    ('amount_untaxed', _('Untaxed Total')),
+    ('amount_tax', 'Tax Amount'),
+    ('amount_total', 'Total Amount'),
+    ('product', 'Product Code in order'),
+    ('prod_qty', 'Product Quantity combination'),
+    ('prod_unit_price', 'Product UnitPrice combination'),
+    ('prod_sub_total', 'Product SubTotal combination'),
+    ('prod_net_price', 'Product NetPrice combination'),
+    ('prod_discount', 'Product Discount combination'),
+    ('prod_weight', 'Product Weight combination'),
+    ('comp_sub_total', 'Compute sub total of products'),
+    ('comp_sub_total_x', 'Compute sub total excluding products'),
+    #('tot_item_qty', 'Total Items Quantity'),
+    #('tot_weight', 'Total Weight'),
+    #('tot_item_qty', 'Total Items Quantity'),
+    ('custom', 'Custom domain expression'),
+]
+
+COMPARATORS = [
+    ('==', _('equals')),
+    ('!=', _('not equal to')),
+    ('>', _('greater than')),
+    ('>=', _('greater than or equal to')),
+    ('<', _('less than')),
+    ('<=', _('less than or equal to')),
+    ('in', _('is in')),
+    ('not in', _('is not in')),
+]
+
+ACTION_TYPES = [
+    ('prod_disc_perc', _('Discount % on Product')),
+    ('prod_disc_fix', _('Fixed amount on Product')),
+    ('cart_disc_perc', _('Discount % on Sub Total')),
+    ('cart_disc_fix', _('Fixed amount on Sub Total')),
+    ('prod_x_get_y', _('Buy X get Y free'))
+]
 
 class PromotionsRules(osv.osv):
     "Promotion Rules"
@@ -326,33 +367,6 @@ class PromotionsRulesConditionsExprs(osv.osv):
     _order = "sequence"
     _rec_name = 'serialised_expr'
     
-    def _get_attributes(self, cursor, user, ids=None, context=None):
-        """
-        Gets the attributes in predefined format
-        @param cursor: Database Cursor
-        @param user: ID of User
-        @param ids: ID of current record.
-        @param context: Context(no direct use).
-        """
-        return [
-                ('amount_untaxed', 'Untaxed Total'),
-                ('amount_tax', 'Tax Amount'),
-                ('amount_total', 'Total Amount'),
-                ('product', 'Product Code in order'),
-                ('prod_qty', 'Product Quantity combination'),
-                ('prod_unit_price', 'Product UnitPrice combination'),
-                ('prod_sub_total', 'Product SubTotal combination'),
-                ('prod_net_price', 'Product NetPrice combination'),
-                ('prod_discount', 'Product Discount combination'),
-                ('prod_weight', 'Product Weight combination'),
-                ('comp_sub_total', 'Compute sub total of products'),
-                ('comp_sub_total_x', 'Compute sub total excluding products'),
-                #('tot_item_qty', 'Total Items Quantity'),
-                #('tot_weight', 'Total Weight'),
-                #('tot_item_qty', 'Total Items Quantity'),
-                ('custom', 'Custom domain expression'),
-                ]
-        
     def _on_change(self, cursor, user, ids=None,
                    attribute=None, value=None, context=None):
         """
@@ -420,41 +434,17 @@ class PromotionsRulesConditionsExprs(osv.osv):
                              }
                     }
         return {}
-            
-    def _get_comparators(self, cursor, user, ids=None, context=None):
-        """
-        Gets the attributes in predefined format
-        @param cursor: Database Cursor
-        @param user: ID of User
-        @param ids: ID of current record.
-        @param context: Context(no direct use).
-        """
-        return [
-#                ('is', 'is'),
-#                ('isnot', 'is not'),
-                ('==', 'equals'),
-                ('!=', 'not equal to'),
-                ('>', 'greater than'),
-                ('>=', 'greater than or equal to'),
-                ('<', 'less than'),
-                ('<=', 'less than or equal to'),
-                ('in', 'is in'),
-                ('not in', 'is not in'),
-                ]
-    
+
     _columns = {
         'sequence':fields.integer('Sequence'),
-        'attribute':fields.selection(_get_attributes,
-                                     'Attribute', size=50, required=True),
-        'comparator':fields.selection(_get_comparators,
-                                      'Comparator', required=True),
+        'attribute':fields.selection(ATTRIBUTES,'Attribute', size=50, required=True),
+        'comparator':fields.selection(COMPARATORS, 'Comparator', required=True),
         'value':fields.char('Value', size=100),
         'serialised_expr':fields.char('Expression', size=255),
-        'promotion': fields.many2one('promos.rules',
-                                     'Promotion'),
+        'promotion': fields.many2one('promos.rules', 'Promotion'),
         'stop_further':fields.boolean('Stop further checks')
-        
     }
+
     _defaults = {
         'comparator': lambda * a:'==',
         'stop_further': lambda * a: '1'
@@ -743,34 +733,13 @@ class PromotionsRulesActions(osv.osv):
                     }
         #Finally if nothing works
         return {}
-    
-    def _get_action_types(self, cursor, user, ids=None, context=None):
-        """
-        Gets the action types in predefined format
-        @param cursor: Database Cursor
-        @param user: ID of User
-        @param ids: ID current record.
-        @param context: Context(no direct use).
-        """
-        return [
-                ('prod_disc_perc', 'Discount % on Product'),
-                ('prod_disc_fix', 'Fixed amount on Product'),
-                ('cart_disc_perc', 'Discount % on Sub Total'),
-                ('cart_disc_fix', 'Fixed amount on Sub Total'),
-                ('prod_x_get_y', 'Buy X get Y free')
-                ]
             
     _columns = {
         'sequence':fields.integer('Sequence', required=True),
-        'action_type':fields.selection(_get_action_types,
-                                       'Action',
-                                       required=True),
-        'product_code':fields.char('Product Code',
-                                   size=100,
-                                   ),
+        'action_type':fields.selection(ACTION_TYPES, 'Action', required=True),
+        'product_code':fields.char('Product Code', size=100),
         'arguments':fields.char('Arguments', size=100),
-        'promotion':fields.many2one('promos.rules',
-                                    'Promotion'),
+        'promotion':fields.many2one('promos.rules', 'Promotion'),
     }
     
     def _clear_existing_promotion_lines(self, cursor, user,
