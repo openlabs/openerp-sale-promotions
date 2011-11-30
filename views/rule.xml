@@ -22,21 +22,21 @@
 
                     </group>
 			        <group colspan="6">
-                            <group colspan="2">
-                                <separator colspan="4"
-                                    string="Coupon/Voucher Settings" />
-                                <field name="coupon_code" />
-						        <field name="coupon_used" />
-                                <field name="uses_per_coupon"
-                                    attrs="{'required':[('coupon_code','!=',False)]}" />
-                                <field name="uses_per_partner"
-                                    attrs="{'required':[('coupon_code','!=',False)]}" />
-                            </group>
-                            <group col="2" colspan="2">
-                                <separator colspan="4" string="Applicable Period" />
-                                <field name="from_date" />
-                                <field name="to_date" />
-                            </group>
+                        <group colspan="2">
+                            <separator colspan="4"
+                                string="Coupon/Voucher Settings" />
+                            <field name="coupon_code" />
+						    <field name="coupon_used" />
+                            <field name="uses_per_coupon"
+                                attrs="{'required':[('coupon_code','!=',False)]}" />
+                            <field name="uses_per_partner"
+                                attrs="{'required':[('coupon_code','!=',False)]}" />
+                        </group>
+                        <group col="2" colspan="2">
+                            <separator colspan="4" string="Applicable Period" />
+                            <field name="from_date" />
+                            <field name="to_date" />
+                        </group>
                     </group>
                     <notebook colspan="4">
                         <page string="Conditions">
@@ -55,7 +55,7 @@
                                     <field name="sequence" />
                                     <field name="stop_further" />
                                     <field name="attribute"
-                                        on_change="_on_change(attribute, value)" />
+                                        on_change="on_change(attribute, value)" />
                                     <field name="comparator" />
                                     <field name="value" />
                                 </tree>
@@ -74,7 +74,7 @@
                                 <tree editable="bottom" string="Actions">
                                     <field name="sequence" />
                                     <field name="action_type"
-                                        on_change="_on_change(action_type, product_code, arguments)" />
+                                        on_change="on_change(action_type, product_code, arguments)" />
                                     <field name="product_code" />
                                     <field name="arguments" />
                                 </tree>
@@ -120,14 +120,14 @@
             <field name="view_mode">tree,form</field>
         </record>
         <menuitem id="promos" action="act_promotion_rules"
-            parent="sale.menu_shop_configuration" />
+            parent="base.menu_sale_config_sales" />
 
         <record model="ir.ui.view" id="view_promotion_cond_expr_form">
             <field name="name">promos.rules.conditions.exps.form</field>
             <field name="model">promos.rules.conditions.exps</field>
             <field name="type">form</field>
             <field name="arch" type="xml">
-                <form string="Rule Expressions">
+                <form string="Expressions">
                     <field name="sequence" />
                     <field name="serialised_expr" />
                 </form>
@@ -140,7 +140,7 @@
             </field>
             <field name="type">tree</field>
             <field name="arch" type="xml">
-                <tree string="Rule Expressions">
+                <tree string="Expressions">
                     <field name="sequence" />
                     <field name="serialised_expr" />
                 </tree>

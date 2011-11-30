@@ -46,7 +46,7 @@ ATTRIBUTES = [
     ('prod_qty', 'Product Quantity combination'),
     ('prod_unit_price', 'Product UnitPrice combination'),
     ('prod_sub_total', 'Product SubTotal combination'),
-    ('prod_net_price', 'Product NetPrice combination'),
+#    ('prod_net_price', 'Product NetPrice combination'),
     ('prod_discount', 'Product Discount combination'),
     ('prod_weight', 'Product Weight combination'),
     ('comp_sub_total', 'Compute sub total of products'),
@@ -82,7 +82,7 @@ class PromotionsRules(osv.osv):
     _description = __doc__
     _order = 'sequence'
     
-    def _count_coupon_use(self, cursor, user, ids, 
+    def count_coupon_use(self, cursor, user, ids, 
                           name, arg, context=None):
         '''
         This function count the number of sale orders(not in cancelled state)
@@ -125,11 +125,11 @@ class PromotionsRules(osv.osv):
                   string="Partner Categories",
                   help="Applicable to all if none is selected"
                                               ),
-        'coupon_code':fields.char('Coupon Code', size=20),
+        'coupon_code':fields.char('Coupon Code', size=20, required=True),
         'uses_per_coupon':fields.integer('Uses per Coupon'),
         'uses_per_partner':fields.integer('Uses per Partner'),
         'coupon_used': fields.function(
-                    _count_coupon_use, 
+                    count_coupon_use, 
                     method=True, 
                     type='integer',
                     string='Number of Coupon Uses',
@@ -158,10 +158,11 @@ class PromotionsRules(osv.osv):
     }
     _defaults = {
         'logic':lambda * a:'and',
-        'expected_logic_result':lambda * a:'True'
+        'expected_logic_result':lambda * a:'True',
+        'active':lambda * a:'True',
     }
     
-    def _date(self, str_date):
+    def promotion_date(self, str_date):
         "Converts string date to date"
         import time
         try:
@@ -173,7 +174,7 @@ class PromotionsRules(osv.osv):
                 return str_date
             
         
-    def _check_primary_conditions(self, cursor, user,
+    def check_primary_conditions(self, cursor, user,
                                   promotion_rule, order, context):
         """
         Checks the conditions for 
@@ -202,9 +203,9 @@ class PromotionsRules(osv.osv):
             #If the codes don't match then this is not the promo 
             if not order.coupon_code == promotion_rule.coupon_code:
                 raise Exception("Coupon codes do not match")
-            # Calling _count_coupon_use to check whether no. of 
+            # Calling count_coupon_use to check whether no. of 
             # uses is greater than allowed uses.
-            count = self._count_coupon_use(cursor, user, [promotion_rule.id], 
+            count = self.count_coupon_use(cursor, user, [promotion_rule.id], 
                                            True, None, context).values()[0]
             if count > promotion_rule.uses_per_coupon:
                 raise Exception("Coupon is overused")
@@ -220,13 +221,13 @@ class PromotionsRules(osv.osv):
                     raise Exception("Customer already used coupon")
         #if a start date has been specified
         if promotion_rule.from_date and \
-            not (self._date(
-                order.date_order) >= self._date(promotion_rule.from_date)):
+            not (self.promotion_date(
+                order.date_order) >= self.promotion_date(promotion_rule.from_date)):
             raise Exception("Order before start of promotion")
         #If an end date has been specified
         if promotion_rule.to_date and \
-            not (self._date(
-                order.date_order) <= self._date(promotion_rule.to_date)):
+            not (self.promotion_date(
+                order.date_order) <= self.promotion_date(promotion_rule.to_date)):
             raise Exception("Order after end of promotion")
         #All tests have succeeded
         return True
@@ -244,7 +245,7 @@ class PromotionsRules(osv.osv):
             context = {}
         expression_obj = self.pool.get('promos.rules.conditions.exps')
         try:
-            self._check_primary_conditions(
+            self.check_primary_conditions(
                                            cursor, user,
                                            promotion_rule, order,
                                            context)
@@ -367,7 +368,7 @@ class PromotionsRulesConditionsExprs(osv.osv):
     _order = "sequence"
     _rec_name = 'serialised_expr'
     
-    def _on_change(self, cursor, user, ids=None,
+    def on_change(self, cursor, user, ids=None,
                    attribute=None, value=None, context=None):
         """
         Set the value field to the format if nothing is there
@@ -603,9 +604,9 @@ class PromotionsRulesConditionsExprs(osv.osv):
                 prod_qty[product_code] = prod_qty.get(
                                             product_code, 0.00
                                                     ) + line.product_uom_qty
-                prod_net_price[product_code] = prod_net_price.get(
-                                                    product_code, 0.00
-                                                    ) + line.price_net
+#                prod_net_price[product_code] = prod_net_price.get(
+#                                                    product_code, 0.00
+#                                                    ) + line.price_net
                 prod_unit_price[product_code] = prod_unit_price.get(
                                                     product_code, 0.00
                                                     ) + line.price_unit
@@ -676,7 +677,7 @@ class PromotionsRulesActions(osv.osv):
     _description = __doc__
     _rec_name = 'action_type'
 
-    def _on_change(self, cursor, user, ids=None,
+    def on_change(self, cursor, user, ids=None,
                    action_type=None, product_code=None,
                    arguments=None, context=None):
         """
@@ -742,7 +743,7 @@ class PromotionsRulesActions(osv.osv):
         'promotion':fields.many2one('promos.rules', 'Promotion'),
     }
     
-    def _clear_existing_promotion_lines(self, cursor, user,
+    def clear_existing_promotion_lines(self, cursor, user,
                                         order, context=None):
         """
         Deletes existing promotion lines before applying
@@ -774,7 +775,7 @@ class PromotionsRulesActions(osv.osv):
                                  context=context)
         return True
         
-    def _action_prod_disc_perc(self, cursor, user,
+    def action_prod_disc_perc(self, cursor, user,
                                action, order, context=None):
         """
         Action for 'Discount % on Product'
@@ -796,7 +797,7 @@ class PromotionsRulesActions(osv.osv):
                                      context
                                      )
     
-    def _action_prod_disc_fix(self, cursor, user,
+    def action_prod_disc_fix(self, cursor, user,
                               action, order, context=None):
         """
         Action for 'Fixed amount on Product'
@@ -831,7 +832,7 @@ class PromotionsRulesActions(osv.osv):
                               context
                               )
     
-    def _action_cart_disc_perc(self, cursor, user,
+    def action_cart_disc_perc(self, cursor, user,
                                action, order, context=None):
         """
         'Discount % on Sub Total'
@@ -856,7 +857,7 @@ class PromotionsRulesActions(osv.osv):
                                   context
                                   )
         
-    def _action_cart_disc_fix(self, cursor, user,
+    def action_cart_disc_fix(self, cursor, user,
                               action, order, context=None):
         """
         'Fixed amount on Sub Total'
@@ -881,7 +882,7 @@ class PromotionsRulesActions(osv.osv):
                                   context
                                   )
     
-    def _create_y_line(self, cursor, user, action,
+    def create_y_line(self, cursor, user, action,
                        order, quantity, product_id, context=None):
         """
         Create new order line for product
@@ -908,7 +909,7 @@ class PromotionsRulesActions(osv.osv):
                               'product_uom':product_y.uom_id.id
                               }, context)
 
-    def _action_prod_x_get_y(self, cursor, user,
+    def action_prod_x_get_y(self, cursor, user,
                              action, order, context=None):
         """
         'Buy X get Y free:[Only for integers]'
@@ -989,7 +990,7 @@ class PromotionsRulesActions(osv.osv):
                                          {
                                     'product_uom_qty': qty_y_in_cart - tot_free_y,
                                           }, context)
-                    self._create_y_line(cursor, user, action,
+                    self.create_y_line(cursor, user, action,
                                             order,
                                             tot_free_y,
                                             product_id,
@@ -1005,7 +1006,7 @@ class PromotionsRulesActions(osv.osv):
             #Dont create line if quantity is not there
             if not tot_free_y:
                 return True
-            return self._create_y_line(cursor, user, action,
+            return self.create_y_line(cursor, user, action,
                                        order, tot_free_y, product_id, context)
                                 
     def execute(self, cursor, user, action_id,
@@ -1018,9 +1019,9 @@ class PromotionsRulesActions(osv.osv):
         @param order: sale order
         @param context: Context(no direct use).
         """
-        self._clear_existing_promotion_lines(cursor, user, order, context)
+        self.clear_existing_promotion_lines(cursor, user, order, context)
         action = self.browse(cursor, user, action_id, context)
-        method_name = '_action_' + action.action_type
+        method_name = 'action_' + action.action_type
         return getattr(self, method_name).__call__(cursor, user, action,
                                                    order, context)
         

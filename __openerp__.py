@@ -3,6 +3,7 @@
 #
 #    OpenERP, Open Source Management Solution    
 #    Copyright (C) 2010, Open Labs Business Solution
+#    Copyright (C) 2011, Zikzakmedia                                        #
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -20,7 +21,7 @@
 ##############################################################################
 
 {
-    'name' : 'Promotions for Open ERP',
+    'name' : 'Promotions for OpenERP',
     'version' : '0.1',
     'author' : 'Open Labs Business Solutions',
     'website': 'http://openlabs.co.in',
@@ -32,7 +33,7 @@
     'init_xml' : [],
     'demo_xml' : [],
     'description': """
-    Promotions on Sale Order for Open ERP
+    Promotions on Sale Order for OpenERP
     = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
     Features:
     1. Promotions based on conditions and coupons
@@ -41,6 +42,7 @@
     Credits:
         This design is based/inspired by the Magento commerce
         Special Thanks to Yannick Buron for analysis
+        Migration Module OpenERP 6: Zikzakmedia
     """,
     'update_xml': [
         'security/ir.model.access.csv',
