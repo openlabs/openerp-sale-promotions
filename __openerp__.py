@@ -22,8 +22,8 @@
 
 {
     'name' : 'Promotions for OpenERP',
-    'version' : '0.1',
-    'author' : 'Open Labs Business Solutions',
+    'version' : '2.7',
+    'author' : 'Openlabs Technologies & Consulting (P) Limited',
     'website': 'http://openlabs.co.in',
     'category' : 'Generic Modules/Sales & Purchases',
     'depends' : [

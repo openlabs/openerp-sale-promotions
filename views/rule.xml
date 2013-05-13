@@ -125,21 +125,11 @@
         <record model="ir.ui.view" id="view_promotion_cond_expr_form">
             <field name="name">promos.rules.conditions.exps.form</field>
             <field name="model">promos.rules.conditions.exps</field>
-            <field name="type">form</field>
             <field name="arch" type="xml">
                 <form string="Expressions">
                     <field name="sequence" />
                     <field name="serialised_expr" />
                 </form>
-            </field>
-        </record>
-        <record model="ir.ui.view" id="view_promotion_cond_expr_tree">
-            <field name="name">promos.rules.conditions.expres.tree
-            </field>
-            <field name="model">promos.rules.conditions.expres
-            </field>
-            <field name="type">tree</field>
-            <field name="arch" type="xml">
                 <tree string="Expressions">
                     <field name="sequence" />
                     <field name="serialised_expr" />

@@ -4,10 +4,10 @@
         <record model="ir.ui.view" id="view_sale_promo_form">
             <field name="name">sale.order.promo.form</field>
             <field name="model">sale.order</field>
-            <field name="type">form</field>
             <field name="inherit_id" ref="sale.view_order_form" />
             <field name="arch" type="xml">
-                <xpath expr="/form/notebook/page[@string='Other Information']" position="inside">
+                <xpath expr="/form/sheet/notebook/page[@string='Other Information']" position="inside">
+                    <label for='coupon_code' />
                     <field name='coupon_code' attrs="{'readonly':[('state','!=','draft')]}" />
                 </xpath>
             </field>
@@ -18,7 +18,7 @@
             <field name="type">form</field>
             <field name="inherit_id" ref="sale.view_order_form" />
             <field name="arch" type="xml">
-                <xpath expr="/form/notebook/page[@string='Sales Order']/group/button[@name='order_confirm']" position="after">
+                <xpath expr="/form/header/button[@name='action_button_confirm']" position="after">
                     <group colspan="4" col="13">
                         <button name="apply_promotions" type="object" states="draft" string="Apply Promotions" />
                     </group>
