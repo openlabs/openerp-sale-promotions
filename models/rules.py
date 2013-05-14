@@ -5,7 +5,7 @@ This design is inspired by magento
 """
 #########################################################################
 #                                                                       #
-# Copyright (C) 2010 Open Labs Business Solutions                       #
+# Copyright (C) 2010-2013 Openlabs Technologies & Consulting (P) Limited#
 # Copyright (C) 2011 Zikzakmedia                                        #
 # Special Credit: Yannick Buron for design evaluation                   #
 #                                                                       #
@@ -949,6 +949,12 @@ class PromotionsRulesActions(osv.osv):
                                         product_code, 0.00
                                                 ) + order_line.product_uom_qty
         #Total number of free units of y to give
+        qty_y_in_cart = prod_qty.get(product_y_code, 0)
+        if product_x_code == product_y_code:
+            tot_free_y = int(int(qty_y_in_cart / (qty_x + qty_y)) * qty_y)
+        else:
+            tot_free_y = int(int(qty_y_in_cart / qty_x) * qty_y)
+
         tot_free_y = int(int(prod_qty.get(product_x_code, 0) / qty_x) * qty_y)
         #If y is already in the cart discount it?
         qty_y_in_cart = prod_qty.get(product_y_code, 0)

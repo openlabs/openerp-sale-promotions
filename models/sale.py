@@ -5,7 +5,7 @@ This design is inspired by magento
 """
 #########################################################################
 #                                                                       #
-# Copyright (C) 2010 Open Labs Business Solutions                       #
+# Copyright (C) 2010-2013 Openlabs Technologies & Consulting (P) Limited#
 # Special Credit: Yannick Buron for design evaluation                   #
 #                                                                       #
 #This program is free software: you can redistribute it and/or modify   #
